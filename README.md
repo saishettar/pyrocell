@@ -59,36 +59,55 @@ past tire-degradation modeling project.
 | Wind | NOAA/NWS API |
 | Real fire perimeters | Cal Fire GIS / NIFC |
 
-## Setup
+## Run it yourself
+
+There's no hosted live demo yet -- this repo is public, so the way to see
+it running is to clone it and run the pipeline locally. Everything below
+is free, no-signup government/open data (LANDFIRE, NOAA, IEM, CAL FIRE) --
+no API keys, no billing, no accounts to create. First run takes maybe
+10-15 minutes end to end (mostly data downloads); after that, restarting
+the server is instant.
+
+**1. Clone and set up a virtualenv**
 
 ```bash
+git clone https://github.com/saishettar/pyrocell.git
+cd pyrocell
 python -m venv venv
-venv/Scripts/python.exe -m pip install -r requirements.txt
+venv/Scripts/python.exe -m pip install -r requirements.txt   # venv/bin/python on macOS/Linux
 ```
 
 Windows note: use a python.org CPython install (not an MSYS2/mingw64
 Python) -- rasterio/GDAL only ship prebuilt wheels for standard win_amd64
 tags, so an MSYS2 interpreter falls back to source builds and fails on
-missing CA certs.
+missing CA certs. macOS/Linux with a normal system Python should be fine.
 
-## Phase 1: fetch data
+**2. Fetch the real terrain + fuel data (Phase 1)**
 
 ```bash
 venv/Scripts/python.exe backend/data_pipeline/fetch_bigsur.py --email you@example.com
 ```
 
-Pulls elevation/slope/aspect/fuel-model layers for the Soberanes Fire AOI
-via LFPS, saves them as `data/processed/soberanes_grid.npz`, and writes a
-sanity-check plot to `output/soberanes_raw_layers.png`.
+Pulls elevation/slope/aspect/fuel-model layers for the Big Sur AOI from
+LANDFIRE (LFPS requires an email to identify the job requester -- no
+account, nothing sent to you). Saves `data/processed/soberanes_grid.npz`
+and a sanity-check plot at `output/soberanes_raw_layers.png`.
 
-## Phase 5: run the map animation
+**3. Fetch the real fire perimeter + calibrate (Phase 4)**
 
 ```bash
-venv/Scripts/python.exe backend/data_pipeline/fetch_perimeter.py   # real CAL FIRE perimeter, needed once
-venv/Scripts/python.exe backend/simulation/calibrate.py            # writes data/processed/calibrated_params.txt
-venv/Scripts/python.exe backend/api/generate_frames.py             # pre-renders data/frames/*.png (not committed, regenerate locally)
+venv/Scripts/python.exe backend/data_pipeline/fetch_perimeter.py   # real CAL FIRE perimeter (ground truth)
+venv/Scripts/python.exe backend/simulation/calibrate.py            # fits base_prob against real fire growth, writes data/processed/calibrated_params.txt
+```
+
+**4. Pre-render the demo animation frames (Phase 5) and start the server**
+
+```bash
+venv/Scripts/python.exe backend/api/generate_frames.py             # renders data/frames/*.png (not checked in -- ~1.6MB, regenerate locally)
 venv/Scripts/python.exe -m uvicorn backend.api.main:app --port 8000
 ```
 
-Then open `http://localhost:8000`. `data/frames/` isn't checked in (1.6MB of
-generated PNGs) -- run `generate_frames.py` locally to produce it.
+Then open `http://localhost:8000`. You'll get the full app: the animated
+2016 Soberanes Fire demo with the real recorded perimeter toggle, plus
+click-to-simulate anywhere in the fetched AOI with live or historical wind
+(Phase 6).
