@@ -154,18 +154,30 @@ def run_simulation(
     elevation_m: np.ndarray,
     fuel_code: np.ndarray,
     ignition_points: list[tuple[int, int]],
-    params: SimParams,
+    params: SimParams | list[SimParams],
     n_steps: int,
     seed: int = 0,
 ) -> list[np.ndarray]:
-    """Returns a list of state-grid snapshots, one per timestep (including t=0)."""
+    """Returns a list of state-grid snapshots, one per timestep (including t=0).
+
+    `params` can be a single SimParams (held constant, e.g. for toy
+    conditions) or a list of one SimParams per step -- used to drive the
+    simulation with real hour-by-hour wind observations, where speed/
+    direction change but slope/fuel-sensitivity constants stay fixed.
+    """
     grid = FireGrid(elevation_m=elevation_m, fuel_code=fuel_code)
     for row, col in ignition_points:
         grid.ignite(row, col)
 
+    if isinstance(params, list):
+        assert len(params) == n_steps, f"expected {n_steps} per-step params, got {len(params)}"
+        params_per_step = params
+    else:
+        params_per_step = [params] * n_steps
+
     rng = np.random.default_rng(seed)
     snapshots = [grid.state.copy()]
-    for _ in range(n_steps):
-        grid.step(params, rng)
+    for step_params in params_per_step:
+        grid.step(step_params, rng)
         snapshots.append(grid.state.copy())
     return snapshots

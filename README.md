@@ -32,10 +32,20 @@ a good stress test for the model.
 
 - [x] Phase 1: data pipeline (DEM + fuel data for the Big Sur AOI) -- see `output/soberanes_raw_layers.png`
 - [x] Phase 2: core CA simulation loop, validated on toy conditions (`backend/simulation/`) -- symmetric baseline, faster uphill, faster downwind, all confirmed with multi-seed statistical checks, not just eyeballing
-- [ ] Phase 3: real historical conditions (Soberanes start point + wind)
-- [ ] Phase 4: validation against real fire perimeter (IoU)
-- [ ] Phase 5: map-based frontend animation
-- [ ] Phase 6: interactive click-to-simulate
+- [x] Phase 3: real historical conditions -- real ignition point (Soberanes Canyon, corrected from Wikipedia's wrong infobox coordinate), real hourly wind from NOAA/IEM ASOS archive for 2016-07-22 through 2016-07-24 (`backend/simulation/real_conditions.py`, see `output/phase3_real_conditions.png`)
+- [ ] Phase 4: validation against real fire perimeter (IoU) -- also where SimParams (base_prob, k_slope, k_wind) get calibrated instead of guessed
+- [ ] Phase 5: map-based frontend animation (Leaflet/Mapbox, play/scrub timeline)
+- [ ] Phase 6: interactive click-to-simulate + deploy live demo
+
+## End goal
+
+A deployed web app: click a point on a Big Sur map, set a start time, hit
+simulate, and watch an hour-by-hour animated fire perimeter grow across
+real terrain -- with a toggle to overlay the actual recorded perimeter of a
+historical fire so the model's accuracy is visible, not just claimed. The
+headline number for the README/resume is the IoU (intersection-over-union)
+between simulated and real burned area, the same role R²/RMSE played in a
+past tire-degradation modeling project.
 
 ## Data sources
 
