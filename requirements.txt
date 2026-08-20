@@ -8,3 +8,4 @@ matplotlib
 scipy
 pypdf
 pyproj
+shapely

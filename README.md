@@ -33,7 +33,10 @@ a good stress test for the model.
 - [x] Phase 1: data pipeline (DEM + fuel data for the Big Sur AOI) -- see `output/soberanes_raw_layers.png`
 - [x] Phase 2: core CA simulation loop, validated on toy conditions (`backend/simulation/`) -- symmetric baseline, faster uphill, faster downwind, all confirmed with multi-seed statistical checks, not just eyeballing
 - [x] Phase 3: real historical conditions -- real ignition point (Soberanes Canyon, corrected from Wikipedia's wrong infobox coordinate), real hourly wind from NOAA/IEM ASOS archive for 2016-07-22 through 2016-07-24 (`backend/simulation/real_conditions.py`, see `output/phase3_real_conditions.png`)
-- [ ] Phase 4: validation against real fire perimeter (IoU) -- also where SimParams (base_prob, k_slope, k_wind) get calibrated instead of guessed
+- [x] Phase 4: calibration + validation (`backend/simulation/calibrate.py`, `validate_perimeter.py`)
+  - Calibrated `base_prob` against 3 real reported acreage milestones (2,000ac@24h, 10,000ac@40h, 14,897ac@65h -- Monterey County news coverage) instead of guessing. Best fit: `base_prob=0.046` (`output/phase4_calibration.png`).
+  - Along the way, found and fixed a real structural bug: a Moore-neighborhood CA has a hard speed ceiling of `cell_size / timestep` (60m/hour here) -- no amount of probability tuning could exceed that, which is why the first calibration pass saturated well below the real growth curve. Fixed by running 6 CA sub-steps per real hour (`SUBSTEPS_PER_HOUR`), each using that hour's real wind.
+  - Validated shape against CAL FIRE's official final perimeter (132,104 acres, IRWIN ID `EB4671D6-...`) via IoU: **~24% overlap** (area-matched comparison, isolating shape agreement from duration mismatch). Caveats stated plainly, not buried: only 71% of the real perimeter falls inside our fetched AOI (the rest extended past our east boundary), and the real fire took 83 days under active suppression that this model doesn't attempt to represent -- so this IoU reflects natural-spread shape plausibility, not a validated physics accuracy claim. See `output/phase4_perimeter_validation.png`.
 - [ ] Phase 5: map-based frontend animation (Leaflet/Mapbox, play/scrub timeline)
 - [ ] Phase 6: interactive click-to-simulate + deploy live demo
 
