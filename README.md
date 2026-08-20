@@ -59,7 +59,7 @@ past tire-degradation modeling project.
 | Wind | NOAA/NWS API |
 | Real fire perimeters | Cal Fire GIS / NIFC |
 
-## Run it yourself
+## Quick Start
 
 There's no hosted live demo yet -- this repo is public, so the way to see
 it running is to clone it and run the pipeline locally. Everything below
