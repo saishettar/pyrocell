@@ -1,0 +1,9 @@
+numpy
+rasterio
+requests
+fastapi
+uvicorn[standard]
+pydantic
+matplotlib
+scipy
+pypdf
