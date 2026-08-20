@@ -2,36 +2,50 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>pyrocell -- Soberanes Fire simulation</title>
+<title>pyrocell -- Big Sur wildfire spread simulator</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   html, body { margin: 0; height: 100%; font-family: -apple-system, Segoe UI, Roboto, sans-serif; }
-  #map { position: absolute; inset: 0; }
+  #map { position: absolute; inset: 0; cursor: default; }
+  #map.picking { cursor: crosshair; }
 
   #panel {
     position: absolute; z-index: 1000; top: 16px; left: 16px;
-    background: rgba(20, 20, 20, 0.88); color: #eee;
+    background: rgba(20, 20, 20, 0.9); color: #eee;
     border-radius: 10px; padding: 14px 18px; width: 340px;
     box-shadow: 0 4px 18px rgba(0,0,0,0.4);
   }
   #panel h1 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
   #panel .subtitle { font-size: 11px; color: #aaa; margin-bottom: 12px; }
+  #panel h2 { font-size: 12px; margin: 14px 0 8px; color: #ffb066; border-top: 1px solid #444; padding-top: 12px; }
 
   .row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  #playBtn {
+  .btn {
     background: #d9491f; border: none; color: white; border-radius: 6px;
-    width: 34px; height: 34px; font-size: 15px; cursor: pointer; flex-shrink: 0;
+    height: 34px; font-size: 13px; cursor: pointer; padding: 0 12px;
   }
-  #playBtn:hover { background: #e8571f; }
+  .btn:hover { background: #e8571f; }
+  .btn:disabled { background: #555; cursor: not-allowed; color: #999; }
+  #playBtn { width: 34px; padding: 0; flex-shrink: 0; }
   #slider { flex: 1; accent-color: #d9491f; }
 
   #stats { font-size: 12px; color: #ddd; display: flex; justify-content: space-between; margin-top: 4px; }
   #stats b { color: #ffb066; }
 
   .toggle-row { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 10px; color: #ccc; }
-  .legend { display: flex; gap: 14px; font-size: 11px; margin-top: 10px; color: #bbb; }
+  .legend { display: flex; gap: 14px; font-size: 11px; margin-top: 10px; color: #bbb; flex-wrap: wrap; }
   .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+  #customForm label { font-size: 11px; color: #ccc; display: block; margin-bottom: 3px; }
+  #customForm select, #customForm input[type=datetime-local] {
+    width: 100%; box-sizing: border-box; background: #2a2a2a; color: #eee; border: 1px solid #555;
+    border-radius: 5px; padding: 5px 7px; font-size: 12px; margin-bottom: 8px;
+  }
+  #pickStatus { font-size: 11px; color: #ffb066; margin-bottom: 8px; min-height: 14px; }
+  #simStatus { font-size: 11px; color: #aaa; margin-top: 8px; min-height: 14px; }
+  #resetBtn { display: none; margin-top: 8px; width: 100%; background: #444; }
+  #resetBtn:hover { background: #555; }
 
   #caveat {
     position: absolute; z-index: 1000; bottom: 16px; left: 16px; max-width: 420px;
@@ -44,15 +58,15 @@
 <div id="map"></div>
 
 <div id="panel">
-  <h1>Soberanes Fire &mdash; simulated spread</h1>
-  <div class="subtitle">Real terrain, fuel, and hourly wind &middot; calibrated CA model</div>
+  <h1 id="title">Soberanes Fire &mdash; simulated spread</h1>
+  <div class="subtitle" id="subtitle">Real terrain, fuel, and hourly wind &middot; calibrated CA model</div>
 
   <div class="row">
-    <button id="playBtn">&#9654;</button>
+    <button id="playBtn" class="btn">&#9654;</button>
     <input id="slider" type="range" min="0" max="168" value="0" step="1" />
   </div>
   <div id="stats">
-    <span>hour <b id="hourLabel">0</b> / 168</span>
+    <span>hour <b id="hourLabel">0</b> / <span id="maxHourLabel">168</span></span>
     <span><b id="acresLabel">0</b> acres burned</span>
   </div>
 
@@ -66,13 +80,34 @@
     <span><span class="swatch" style="background:#3c140a;"></span>burned</span>
     <span><span class="swatch" style="background:#2255ff;"></span>real perimeter</span>
   </div>
+
+  <h2>RUN YOUR OWN SIMULATION</h2>
+  <button id="pickBtn" class="btn" style="width:100%; margin-bottom:8px;">Click map to choose start point</button>
+  <div id="pickStatus"></div>
+
+  <div id="customForm">
+    <label for="hoursSelect">Duration</label>
+    <select id="hoursSelect">
+      <option value="24">24 hours</option>
+      <option value="48" selected>48 hours</option>
+      <option value="72">72 hours</option>
+      <option value="96">96 hours</option>
+    </select>
+
+    <label for="dateInput">Historical start date &amp; time (optional &mdash; leave blank for live current wind)</label>
+    <input type="datetime-local" id="dateInput" />
+
+    <button id="runBtn" class="btn" style="width:100%;" disabled>Run simulation</button>
+  </div>
+  <div id="simStatus"></div>
+  <button id="resetBtn" class="btn">&larr; back to 2016 Soberanes demo</button>
 </div>
 
 <div id="caveat">
-  Simulation has no firefighting/suppression modeling &mdash; the real fire took 83 days
-  under active suppression to reach its recorded final perimeter. This animation shows
-  unconstrained natural spread only. See project README for the calibration &amp; IoU
-  validation methodology.
+  Simulation has no firefighting/suppression modeling. Custom runs use the real
+  Big Sur terrain/fuel grid, but only within the fetched AOI, and historical wind
+  is read from one Monterey airport station regardless of how far the click is from it.
+  See project README for the calibration &amp; IoU validation methodology.
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
