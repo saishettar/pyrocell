@@ -37,7 +37,7 @@ a good stress test for the model.
   - Calibrated `base_prob` against 3 real reported acreage milestones (2,000ac@24h, 10,000ac@40h, 14,897ac@65h -- Monterey County news coverage) instead of guessing. Best fit: `base_prob=0.046` (`output/phase4_calibration.png`).
   - Along the way, found and fixed a real structural bug: a Moore-neighborhood CA has a hard speed ceiling of `cell_size / timestep` (60m/hour here) -- no amount of probability tuning could exceed that, which is why the first calibration pass saturated well below the real growth curve. Fixed by running 6 CA sub-steps per real hour (`SUBSTEPS_PER_HOUR`), each using that hour's real wind.
   - Validated shape against CAL FIRE's official final perimeter (132,104 acres, IRWIN ID `EB4671D6-...`) via IoU: **~24% overlap** (area-matched comparison, isolating shape agreement from duration mismatch). Caveats stated plainly, not buried: only 71% of the real perimeter falls inside our fetched AOI (the rest extended past our east boundary), and the real fire took 83 days under active suppression that this model doesn't attempt to represent -- so this IoU reflects natural-spread shape plausibility, not a validated physics accuracy claim. See `output/phase4_perimeter_validation.png`.
-- [ ] Phase 5: map-based frontend animation (Leaflet/Mapbox, play/scrub timeline)
+- [x] Phase 5: map-based frontend animation -- real Leaflet map (OpenStreetMap basemap) with a play/scrub timeline over the calibrated 7-day simulation, real recorded perimeter as a toggleable overlay for visual comparison (`backend/api/`, `frontend/`)
 - [ ] Phase 6: interactive click-to-simulate + deploy live demo
 
 ## End goal
@@ -79,3 +79,15 @@ venv/Scripts/python.exe backend/data_pipeline/fetch_bigsur.py --email you@exampl
 Pulls elevation/slope/aspect/fuel-model layers for the Soberanes Fire AOI
 via LFPS, saves them as `data/processed/soberanes_grid.npz`, and writes a
 sanity-check plot to `output/soberanes_raw_layers.png`.
+
+## Phase 5: run the map animation
+
+```bash
+venv/Scripts/python.exe backend/data_pipeline/fetch_perimeter.py   # real CAL FIRE perimeter, needed once
+venv/Scripts/python.exe backend/simulation/calibrate.py            # writes data/processed/calibrated_params.txt
+venv/Scripts/python.exe backend/api/generate_frames.py             # pre-renders data/frames/*.png (not committed, regenerate locally)
+venv/Scripts/python.exe -m uvicorn backend.api.main:app --port 8000
+```
+
+Then open `http://localhost:8000`. `data/frames/` isn't checked in (1.6MB of
+generated PNGs) -- run `generate_frames.py` locally to produce it.

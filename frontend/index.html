@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>pyrocell -- Soberanes Fire simulation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  html, body { margin: 0; height: 100%; font-family: -apple-system, Segoe UI, Roboto, sans-serif; }
+  #map { position: absolute; inset: 0; }
+
+  #panel {
+    position: absolute; z-index: 1000; top: 16px; left: 16px;
+    background: rgba(20, 20, 20, 0.88); color: #eee;
+    border-radius: 10px; padding: 14px 18px; width: 340px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+  }
+  #panel h1 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+  #panel .subtitle { font-size: 11px; color: #aaa; margin-bottom: 12px; }
+
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  #playBtn {
+    background: #d9491f; border: none; color: white; border-radius: 6px;
+    width: 34px; height: 34px; font-size: 15px; cursor: pointer; flex-shrink: 0;
+  }
+  #playBtn:hover { background: #e8571f; }
+  #slider { flex: 1; accent-color: #d9491f; }
+
+  #stats { font-size: 12px; color: #ddd; display: flex; justify-content: space-between; margin-top: 4px; }
+  #stats b { color: #ffb066; }
+
+  .toggle-row { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 10px; color: #ccc; }
+  .legend { display: flex; gap: 14px; font-size: 11px; margin-top: 10px; color: #bbb; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+  #caveat {
+    position: absolute; z-index: 1000; bottom: 16px; left: 16px; max-width: 420px;
+    background: rgba(20,20,20,0.82); color: #bbb; font-size: 11px; line-height: 1.5;
+    padding: 10px 14px; border-radius: 8px;
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="panel">
+  <h1>Soberanes Fire &mdash; simulated spread</h1>
+  <div class="subtitle">Real terrain, fuel, and hourly wind &middot; calibrated CA model</div>
+
+  <div class="row">
+    <button id="playBtn">&#9654;</button>
+    <input id="slider" type="range" min="0" max="168" value="0" step="1" />
+  </div>
+  <div id="stats">
+    <span>hour <b id="hourLabel">0</b> / 168</span>
+    <span><b id="acresLabel">0</b> acres burned</span>
+  </div>
+
+  <div class="toggle-row">
+    <input type="checkbox" id="perimeterToggle" checked />
+    <label for="perimeterToggle">show real recorded perimeter (CAL FIRE, 83-day final)</label>
+  </div>
+
+  <div class="legend">
+    <span><span class="swatch" style="background:#ff6400;"></span>burning</span>
+    <span><span class="swatch" style="background:#3c140a;"></span>burned</span>
+    <span><span class="swatch" style="background:#2255ff;"></span>real perimeter</span>
+  </div>
+</div>
+
+<div id="caveat">
+  Simulation has no firefighting/suppression modeling &mdash; the real fire took 83 days
+  under active suppression to reach its recorded final perimeter. This animation shows
+  unconstrained natural spread only. See project README for the calibration &amp; IoU
+  validation methodology.
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
