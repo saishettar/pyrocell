@@ -31,7 +31,7 @@ a good stress test for the model.
 ## Status
 
 - [x] Phase 1: data pipeline (DEM + fuel data for the Big Sur AOI) -- see `output/soberanes_raw_layers.png`
-- [ ] Phase 2: core CA simulation loop (toy conditions)
+- [x] Phase 2: core CA simulation loop, validated on toy conditions (`backend/simulation/`) -- symmetric baseline, faster uphill, faster downwind, all confirmed with multi-seed statistical checks, not just eyeballing
 - [ ] Phase 3: real historical conditions (Soberanes start point + wind)
 - [ ] Phase 4: validation against real fire perimeter (IoU)
 - [ ] Phase 5: map-based frontend animation
