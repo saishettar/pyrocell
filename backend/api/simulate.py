@@ -72,13 +72,15 @@ def fetch_live_wind(lat: float, lon: float) -> list[WindObservation]:
     return obs
 
 
-def fetch_wind_for_request(lat: float, lon: float, start_time: datetime | None, n_hours: int) -> tuple[list[WindObservation], str, datetime]:
+def fetch_wind_for_request(
+    lat: float, lon: float, start_time: datetime | None, n_hours: int, station: str,
+) -> tuple[list[WindObservation], str, datetime]:
     if start_time is not None:
         end_date = (start_time + timedelta(hours=n_hours, days=1)).date()
-        obs = fetch_historical_wind("MRY", start_time.date(), end_date)
+        obs = fetch_historical_wind(station, start_time.date(), end_date)
         if not obs:
-            raise SimulationError(f"no historical wind data for {start_time.date()} at station MRY")
-        return obs, f"historical (station MRY, {start_time.date()})", start_time
+            raise SimulationError(f"no historical wind data for {start_time.date()} at station {station}")
+        return obs, f"historical (station {station}, {start_time.date()})", start_time
     else:
         now = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0, second=0)
         obs = fetch_live_wind(lat, lon)
@@ -111,7 +113,7 @@ def frame_to_data_uri(state: np.ndarray) -> str:
 
 def run_click_simulation(
     lat: float, lon: float, n_hours: int, start_time_iso: str | None,
-    grid, calibrated_params: dict,
+    grid, calibrated_params: dict, wind_station: str, default_seed: int = 7,
 ) -> dict:
     elevation_m, fuel_code, transform, crs, cell_size_m, latlon_to_rowcol = grid
 
@@ -121,7 +123,7 @@ def run_click_simulation(
     row, col = latlon_to_rowcol(lat, lon)
     h, w = elevation_m.shape
     if not (0 <= row < h and 0 <= col < w):
-        raise SimulationError("that point is outside the fetched Big Sur AOI -- pick a point closer to the coast/Santa Lucia range")
+        raise SimulationError("that point is outside the fetched AOI for this fire -- pick a point closer to the coast/Santa Lucia range, or switch fires")
 
     # A cell being non-burnable itself is fine -- ignitions often start on
     # roads/trails/campsites and spread into nearby vegetation (this is
@@ -135,7 +137,7 @@ def run_click_simulation(
         raise SimulationError("no burnable vegetation near that point (water, urban, or barren) -- pick a spot closer to vegetation")
 
     start_time = datetime.fromisoformat(start_time_iso) if start_time_iso else None
-    obs, wind_source, effective_start = fetch_wind_for_request(lat, lon, start_time, n_hours)
+    obs, wind_source, effective_start = fetch_wind_for_request(lat, lon, start_time, n_hours, wind_station)
 
     params_per_substep = build_params(
         cell_size_m, n_hours, effective_start, obs,
@@ -145,7 +147,7 @@ def run_click_simulation(
     n_steps = n_hours * SUBSTEPS_PER_HOUR
     snapshots = run_simulation(
         elevation_m=elevation_m, fuel_code=fuel_code,
-        ignition_points=[(row, col)], params=params_per_substep, n_steps=n_steps, seed=7,
+        ignition_points=[(row, col)], params=params_per_substep, n_steps=n_steps, seed=default_seed,
     )
 
     frames = []

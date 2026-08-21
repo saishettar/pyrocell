@@ -20,6 +20,11 @@
   #panel .subtitle { font-size: 11px; color: #aaa; margin-bottom: 12px; }
   #panel h2 { font-size: 12px; margin: 14px 0 8px; color: #ffb066; border-top: 1px solid #444; padding-top: 12px; }
 
+  #fireSelect {
+    width: 100%; box-sizing: border-box; background: #2a2a2a; color: #eee; border: 1px solid #555;
+    border-radius: 5px; padding: 6px 8px; font-size: 13px; font-weight: 600; margin-bottom: 12px;
+  }
+
   .row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .btn {
     background: #d9491f; border: none; color: white; border-radius: 6px;
@@ -58,6 +63,11 @@
 <div id="map"></div>
 
 <div id="panel">
+  <select id="fireSelect">
+    <option value="soberanes">2016 Soberanes Fire (calibration target)</option>
+    <option value="dolan">2020 Dolan Fire (cross-validation, params not refit)</option>
+  </select>
+
   <h1 id="title">Soberanes Fire &mdash; simulated spread</h1>
   <div class="subtitle" id="subtitle">Real terrain, fuel, and hourly wind &middot; calibrated CA model</div>
 
@@ -72,7 +82,7 @@
 
   <div class="toggle-row">
     <input type="checkbox" id="perimeterToggle" checked />
-    <label for="perimeterToggle">show real recorded perimeter (CAL FIRE, 83-day final)</label>
+    <label for="perimeterToggle">show real recorded perimeter (CAL FIRE, final)</label>
   </div>
 
   <div class="legend">
@@ -100,7 +110,7 @@
     <button id="runBtn" class="btn" style="width:100%;" disabled>Run simulation</button>
   </div>
   <div id="simStatus"></div>
-  <button id="resetBtn" class="btn">&larr; back to 2016 Soberanes demo</button>
+  <button id="resetBtn" class="btn">&larr; back to demo</button>
 </div>
 
 <div id="caveat">

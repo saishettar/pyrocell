@@ -45,6 +45,7 @@ different terrain and fuel (Phase 7).
 - [x] Phase 5: map-based frontend animation (Leaflet, play/scrub timeline)
 - [x] Phase 6: interactive click-to-simulate, live or historical wind
 - [x] Phase 7: cross-validated against a second, independent fire (2020 Dolan) -- **~27% mean IoU**, params not refit
+- [x] Phase 7.5: both fires live in the app -- a fire selector switches the map, demo animation, real perimeter, and click-to-simulate AOI between Soberanes and Dolan
 - [ ] Phase 8: deploy a live public demo (pending a hosting decision)
 
 ## End goal
@@ -78,8 +79,8 @@ There's no hosted live demo yet -- this repo is public, so the way to see
 it running is to clone it and run the pipeline locally. Everything below
 is free, no-signup government/open data (LANDFIRE, NOAA, IEM, CAL FIRE) --
 no API keys, no billing, no accounts to create. First run takes maybe
-10-15 minutes end to end (mostly data downloads); after that, restarting
-the server is instant.
+15-20 minutes end to end for both fires (mostly data downloads and frame
+rendering); after that, restarting the server is instant.
 
 **1. Clone and set up a virtualenv**
 
@@ -95,44 +96,46 @@ Python) -- rasterio/GDAL only ship prebuilt wheels for standard win_amd64
 tags, so an MSYS2 interpreter falls back to source builds and fails on
 missing CA certs. macOS/Linux with a normal system Python should be fine.
 
-**2. Fetch the real terrain + fuel data (Phase 1)**
+**2. Fetch the real terrain + fuel data for both fires (Phase 1 + 7)**
 
 ```bash
 venv/Scripts/python.exe backend/data_pipeline/fetch_bigsur.py --email you@example.com
+venv/Scripts/python.exe backend/data_pipeline/fetch_dolan.py --email you@example.com
 ```
 
-Pulls elevation/slope/aspect/fuel-model layers for the Big Sur AOI from
-LANDFIRE (LFPS requires an email to identify the job requester -- no
-account, nothing sent to you). Saves `data/processed/soberanes_grid.npz`
-and a sanity-check plot at `output/soberanes_raw_layers.png`.
+Pulls elevation/slope/aspect/fuel-model layers from LANDFIRE for each
+fire's AOI (LFPS requires an email to identify the job requester -- no
+account, nothing sent to you), plus a sanity-check plot for each
+(`output/soberanes_raw_layers.png`, `output/dolan_raw_layers.png`).
 
-**3. Fetch the real fire perimeter + calibrate (Phase 4)**
+**3. Fetch the real fire perimeters + calibrate (Phase 4)**
 
 ```bash
-venv/Scripts/python.exe backend/data_pipeline/fetch_perimeter.py   # real CAL FIRE perimeter (ground truth)
-venv/Scripts/python.exe backend/simulation/calibrate.py            # fits base_prob against real fire growth, writes data/processed/calibrated_params.txt
+venv/Scripts/python.exe backend/data_pipeline/fetch_perimeter.py                          # real CAL FIRE Soberanes perimeter (ground truth)
+venv/Scripts/python.exe backend/data_pipeline/fetch_perimeter.py --fire-name DOLAN --year 2020
+venv/Scripts/python.exe backend/simulation/calibrate.py                                   # fits base_prob against Soberanes' real fire growth, writes data/processed/calibrated_params.txt
 ```
 
-**4. Pre-render the demo animation frames (Phase 5) and start the server**
+**4. Pre-render both fires' demo animations (Phase 5/7.5) and start the server**
 
 ```bash
-venv/Scripts/python.exe backend/api/generate_frames.py             # renders data/frames/*.png (not checked in -- ~1.6MB, regenerate locally)
+venv/Scripts/python.exe backend/api/generate_frames.py --fire soberanes   # renders data/frames/soberanes/*.png (not checked in, regenerate locally)
+venv/Scripts/python.exe backend/api/generate_frames.py --fire dolan       # renders data/frames/dolan/*.png
 venv/Scripts/python.exe -m uvicorn backend.api.main:app --port 8000
 ```
 
-Then open `http://localhost:8000`. You'll get the full app: the animated
-2016 Soberanes Fire demo with the real recorded perimeter toggle, plus
-click-to-simulate anywhere in the fetched AOI with live or historical wind
-(Phase 6).
+Then open `http://localhost:8000`. A dropdown at the top switches between
+the two fires -- each with its own animated demo, real recorded perimeter
+toggle, and click-to-simulate (Phase 6) with live or historical wind,
+restricted to that fire's fetched AOI.
 
-**Optional: reproduce the cross-validation (Phase 7)**
+**Optional: reproduce the Phase 7 cross-validation numbers**
 
 ```bash
-venv/Scripts/python.exe backend/data_pipeline/fetch_dolan.py --email you@example.com
-venv/Scripts/python.exe backend/data_pipeline/fetch_perimeter.py --fire-name DOLAN --year 2020
 venv/Scripts/python.exe backend/simulation/cross_validate_dolan.py
 ```
 
-Runs the Soberanes-calibrated params, completely unchanged, against the
-2020 Dolan Fire's real terrain/wind/perimeter. Takes a while -- it's a
-16-seed screen plus 5 full 21-day simulations on a ~650x785 grid.
+Re-derives the ~27% mean-IoU / escape-rate numbers reported in the README
+and `docs/METHODOLOGY.md` -- a 16-seed screen plus 5 full 21-day
+simulations, so it takes a while. Not needed just to see Dolan in the app;
+step 4 already covers that with one representative seed.

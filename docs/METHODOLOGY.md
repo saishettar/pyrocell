@@ -173,3 +173,18 @@ published Soberanes results, since that code path was never hit there.
 Each fire's raw GeoTIFF now lives in its own `data/raw/<fire>/` subdir to
 avoid glob collisions between fires; perimeter GeoJSONs stay flat in
 `data/raw/` with fire-specific filenames.
+
+## Phase 7.5 -- Both fires live in the app
+
+Phase 7's cross-validation only existed as a standalone script producing
+static plots -- Dolan wasn't actually viewable in the running app.
+`generate_frames.py` and `main.py` were generalized to hold both fires'
+grids and pre-rendered demo frames simultaneously (`data/frames/<fire>/`),
+and the frontend gained a fire selector that swaps the map bounds, demo
+animation, real perimeter overlay, and click-to-simulate AOI together.
+
+One thing worth calling out explicitly: Dolan's demo animation uses a
+fixed seed (8) chosen because Phase 7 confirmed it escapes stochastic
+extinction and lands close to the mean IoU across escaped runs -- not
+cherry-picked for a better-looking result, just a representative,
+non-extinct one. `generate_frames.py --seed` can override it.

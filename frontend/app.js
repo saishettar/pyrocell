@@ -4,9 +4,16 @@ let imageOverlay = null;
 let playing = false;
 let playTimer = null;
 let perimeterLayer = null;
+let ignitionMarker = null;
 let pickedMarker = null;
 let picking = false;
 let mode = "demo"; // "demo" | "custom"
+let currentFire = "soberanes";
+
+const FIRE_LABELS = {
+  soberanes: { title: "Soberanes Fire", ignitionPopup: "2016-07-22 8:48am PDT" },
+  dolan: { title: "Dolan Fire", ignitionPopup: "2020-08-18 8:15pm PDT" },
+};
 
 const slider = document.getElementById("slider");
 const playBtn = document.getElementById("playBtn");
@@ -24,15 +31,9 @@ const resetBtn = document.getElementById("resetBtn");
 const titleEl = document.getElementById("title");
 const subtitleEl = document.getElementById("subtitle");
 const mapDiv = document.getElementById("map");
+const fireSelect = document.getElementById("fireSelect");
 
 async function init() {
-  meta = await fetch("/api/meta").then((r) => r.json());
-
-  const bounds = [
-    [meta.bounds.south, meta.bounds.west],
-    [meta.bounds.north, meta.bounds.east],
-  ];
-
   map = L.map("map", { zoomControl: true });
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -40,36 +41,66 @@ async function init() {
     maxZoom: 17,
   }).addTo(map);
 
+  imageOverlay = L.imageOverlay("", [[0, 0], [0, 0]], { opacity: 0.85 }).addTo(map);
+
+  slider.addEventListener("input", () => setHour(parseInt(slider.value, 10)));
+  playBtn.addEventListener("click", togglePlay);
+  pickBtn.addEventListener("click", togglePicking);
+  map.on("click", onMapClick);
+  runBtn.addEventListener("click", runCustomSimulation);
+  resetBtn.addEventListener("click", () => loadDemo(currentFire));
+  fireSelect.addEventListener("change", () => {
+    if (picking) togglePicking();
+    if (pickedMarker) { map.removeLayer(pickedMarker); pickedMarker = null; }
+    runBtn.disabled = true;
+    pickStatus.textContent = "";
+    simStatus.textContent = "";
+    loadDemo(fireSelect.value);
+  });
+
+  await loadDemo(currentFire);
+}
+
+async function loadDemo(fireSlug) {
+  currentFire = fireSlug;
+  mode = "demo";
+  if (playing) togglePlay();
+
+  meta = await fetch(`/api/meta?fire=${fireSlug}`).then((r) => r.json());
+  applyMeta(meta);
+
+  const bounds = [
+    [meta.bounds.south, meta.bounds.west],
+    [meta.bounds.north, meta.bounds.east],
+  ];
   map.invalidateSize();
   map.fitBounds(bounds, { padding: [40, 40] });
 
-  imageOverlay = L.imageOverlay(frameUrl(0), bounds, { opacity: 0.85 }).addTo(map);
+  const label = FIRE_LABELS[fireSlug] || { title: meta.fire_name, ignitionPopup: meta.ignition_time_utc };
+  titleEl.textContent = `${label.title} — simulated spread`;
+  subtitleEl.textContent = "Real terrain, fuel, and hourly wind · calibrated CA model";
+  resetBtn.style.display = "none";
 
-  L.marker([meta.ignition.lat, meta.ignition.lon])
+  if (ignitionMarker) map.removeLayer(ignitionMarker);
+  ignitionMarker = L.marker([meta.ignition.lat, meta.ignition.lon])
     .addTo(map)
-    .bindPopup("Soberanes Fire ignition point<br>2016-07-22 8:48am PDT");
+    .bindPopup(`${label.title} ignition point<br>${label.ignitionPopup}`);
 
-  const perimeterGeojson = await fetch("/api/perimeter").then((r) => r.json());
+  if (perimeterLayer) map.removeLayer(perimeterLayer);
+  const perimeterGeojson = await fetch(`/api/perimeter?fire=${fireSlug}`).then((r) => r.json());
   perimeterLayer = L.geoJSON(perimeterGeojson, {
     style: { color: "#2255ff", weight: 2.5, fillOpacity: 0 },
   });
   if (perimeterToggle.checked) perimeterLayer.addTo(map);
-  perimeterToggle.addEventListener("change", () => {
-    if (perimeterToggle.checked) perimeterLayer.addTo(map);
-    else map.removeLayer(perimeterLayer);
-  });
-
-  applyMeta(meta);
-  slider.addEventListener("input", () => setHour(parseInt(slider.value, 10)));
-  playBtn.addEventListener("click", togglePlay);
-
-  pickBtn.addEventListener("click", togglePicking);
-  map.on("click", onMapClick);
-  runBtn.addEventListener("click", runCustomSimulation);
-  resetBtn.addEventListener("click", resetToDemo);
 
   setHour(0);
 }
+
+perimeterToggle.addEventListener("change", () => {
+  if (!perimeterLayer) return;
+  if (perimeterToggle.checked) perimeterLayer.addTo(map);
+  else map.removeLayer(perimeterLayer);
+});
 
 function applyMeta(m) {
   slider.max = m.n_hours;
@@ -78,7 +109,7 @@ function applyMeta(m) {
 
 function frameUrl(hour) {
   if (mode === "custom" && meta.frames) return meta.frames[hour];
-  return `/frames/frame_${String(hour).padStart(4, "0")}.png`;
+  return `/frames/${currentFire}/frame_${String(hour).padStart(4, "0")}.png`;
 }
 
 function setHour(hour) {
@@ -133,7 +164,7 @@ async function runCustomSimulation() {
   simStatus.textContent = `running ${hours}h simulation... (can take 10-30s)`;
   if (playing) togglePlay();
 
-  const body = { lat, lon: lng, hours };
+  const body = { lat, lon: lng, hours, fire: currentFire };
   if (dateVal) body.start_time = dateVal + ":00";
 
   let resp;
@@ -168,11 +199,6 @@ async function runCustomSimulation() {
   runBtn.disabled = false;
 
   setHour(0);
-}
-
-function resetToDemo() {
-  mode = "demo";
-  location.reload();
 }
 
 init();
