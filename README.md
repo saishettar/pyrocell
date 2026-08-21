@@ -98,3 +98,7 @@ venv/Scripts/python.exe backend/simulation/cross_validate_dolan.py
 ```
 
 This re-derives the mean IoU and escape-rate numbers reported in the README and `docs/METHODOLOGY.md`. It runs a 16-seed screen plus 5 full 21-day simulations, so it takes a while, and it isn't needed just to see Dolan in the app; step 4 already covers that with one representative seed.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
