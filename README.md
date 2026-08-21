@@ -5,10 +5,11 @@ wind data, validated against real historical fires.
 
 ## Purpose
 
-This exists to demonstrate applied computational modeling and validation
-discipline, not just to animate a fire on a map -- the same shape as a
-past tire-degradation modeling project: a real, working tool with a
-defensible accuracy number behind it, not a black box. Concretely:
+Most wildfire-spread demos online are either static maps of past fires or
+toy cellular automata with made-up parameters. This project ties the two
+together: a real spread model, driven by real terrain/fuel/wind data,
+scored against what the fire actually did -- not just an animation that
+looks plausible. Concretely:
 
 - **Calibrated**, not guessed -- `base_prob` is fit against the real 2016
   Soberanes Fire's actual reported growth curve (Phase 4).
