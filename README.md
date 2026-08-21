@@ -20,13 +20,21 @@ coarser model, but cheap to vectorize and reason about, while still
 capturing the same qualitative drivers (fire runs faster uphill, downwind,
 and through drier/flashier fuels).
 
-## Validation target: 2016 Soberanes Fire
+## Validation targets
 
-Started 2016-07-22 near Garrapata State Park / Palo Colorado Canyon (Big
-Sur, CA), burned ~132,000 acres. Chosen because it's well documented, has
-public Cal Fire/NIFC perimeter data, and the terrain (steep coastal range,
-strong diurnal wind patterns) makes slope/wind effects clearly visible --
-a good stress test for the model.
+**2016 Soberanes Fire** (calibration target) -- started 2016-07-22 near
+Garrapata State Park / Palo Colorado Canyon (Big Sur, CA), burned ~132,000
+acres. Chosen because it's well documented, has public Cal Fire/NIFC
+perimeter data, and the terrain (steep coastal range, strong diurnal wind
+patterns) makes slope/wind effects clearly visible -- a good stress test
+for the model. `base_prob` is fit against this fire's real growth curve
+(Phase 4).
+
+**2020 Dolan Fire** (cross-validation target) -- started 2020-08-18 near
+Dolan Ridge, Big Sur south coast, burned ~124,500 acres. Used purely to
+check whether the Soberanes calibration generalizes: run with the exact
+same params, never refit, against a different stretch of coastline with
+different terrain and fuel (Phase 7).
 
 ## Status
 
