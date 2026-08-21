@@ -30,20 +30,14 @@ a good stress test for the model.
 
 ## Status
 
-- [x] Phase 1: data pipeline (DEM + fuel data for the Big Sur AOI) -- see `output/soberanes_raw_layers.png`
-- [x] Phase 2: core CA simulation loop, validated on toy conditions (`backend/simulation/`) -- symmetric baseline, faster uphill, faster downwind, all confirmed with multi-seed statistical checks, not just eyeballing
-- [x] Phase 3: real historical conditions -- real ignition point (Soberanes Canyon, corrected from Wikipedia's wrong infobox coordinate), real hourly wind from NOAA/IEM ASOS archive for 2016-07-22 through 2016-07-24 (`backend/simulation/real_conditions.py`, see `output/phase3_real_conditions.png`)
-- [x] Phase 4: calibration + validation (`backend/simulation/calibrate.py`, `validate_perimeter.py`)
-  - Calibrated `base_prob` against 3 real reported acreage milestones (2,000ac@24h, 10,000ac@40h, 14,897ac@65h -- Monterey County news coverage) instead of guessing. Best fit: `base_prob=0.046` (`output/phase4_calibration.png`).
-  - Along the way, found and fixed a real structural bug: a Moore-neighborhood CA has a hard speed ceiling of `cell_size / timestep` (60m/hour here) -- no amount of probability tuning could exceed that, which is why the first calibration pass saturated well below the real growth curve. Fixed by running 6 CA sub-steps per real hour (`SUBSTEPS_PER_HOUR`), each using that hour's real wind.
-  - Validated shape against CAL FIRE's official final perimeter (132,104 acres, IRWIN ID `EB4671D6-...`) via IoU: **~24% overlap** (area-matched comparison, isolating shape agreement from duration mismatch). Caveats stated plainly, not buried: only 71% of the real perimeter falls inside our fetched AOI (the rest extended past our east boundary), and the real fire took 83 days under active suppression that this model doesn't attempt to represent -- so this IoU reflects natural-spread shape plausibility, not a validated physics accuracy claim. See `output/phase4_perimeter_validation.png`.
-- [x] Phase 5: map-based frontend animation -- real Leaflet map (OpenStreetMap basemap) with a play/scrub timeline over the calibrated 7-day simulation, real recorded perimeter as a toggleable overlay for visual comparison (`backend/api/`, `frontend/`)
-- [x] Phase 6a: interactive click-to-simulate -- click any point in the fetched AOI, pick a duration (24-96h) and an optional historical date (blank = live current wind from NOAA `forecastHourly`), run on demand (`POST /api/simulate`, `backend/api/simulate.py`). Historical dates reuse the same IEM/ASOS archive as Soberanes; live conditions hit `api.weather.gov`. Verified in-browser for both wind sources -- a live run near Big Sur's inland side stalled at 15 acres under tonight's calm wind, while historical Soberanes conditions reproduce the Phase 4 calibration curve exactly, which is the expected contrast.
-- [ ] Phase 6b: deploy a live public demo (pending a hosting decision)
-- [x] Phase 7: cross-validation against a second, independent fire -- the 2020 Dolan Fire (Big Sur south coast, ~124,500ac), using the Soberanes-calibrated params completely UNCHANGED (`backend/simulation/cross_validate_dolan.py`, `fire_config.py`)
-  - A single-seed first pass looked broken (fire went to zero burning cells at hour 14 and stayed there for the rest of a 21-day run) -- turned out to be a real, non-bug model property: BURNED is terminal, so a probabilistic CA with a finite burnout window can stochastically self-extinguish before it "catches," the same way small real ignitions sometimes fizzle out. A 16-seed screen at 48h confirmed it: 15/16 seeds escape and grow normally; that one seed was just the unlucky draw.
-  - Among escaped seeds (5 run to the full 21-day duration), **IoU against the real Dolan perimeter averaged 0.27 (range 0.25-0.31)** -- comparable to, even slightly above, Soberanes' own ~0.24 validation number, using parameters that were never touched for Dolan. That's the actual evidence the calibration generalizes rather than just curve-fitting one fire.
-  - Also caught and fixed a real, previously-latent bug during this AOI's data pipeline: `fuel_spread_rate`'s fallback defaulted anything outside the known FBFM40 buckets to a moderately-burnable rate (0.3), silently treating LANDFIRE nodata (-9999, e.g. open ocean past its coverage extent) as real fuel. Never surfaced against Soberanes' AOI (its ocean cells are real LANDFIRE water code 98, not nodata) but did against Dolan's, whose AOI reaches open water beyond LANDFIRE's coverage (~11% of the grid). Fixed to default unrecognized codes to non-burnable. See `output/phase7_dolan_cross_validation.png`.
+- [x] Phase 1: data pipeline -- real DEM + fuel data for the Big Sur AOI (LANDFIRE)
+- [x] Phase 2: core CA simulation loop, validated on synthetic conditions
+- [x] Phase 3: real historical ignition point + hourly wind (2016 Soberanes Fire)
+- [x] Phase 4: calibration + validation -- **~24% IoU** against the real Soberanes perimeter
+- [x] Phase 5: map-based frontend animation (Leaflet, play/scrub timeline)
+- [x] Phase 6: interactive click-to-simulate, live or historical wind
+- [x] Phase 7: cross-validated against a second, independent fire (2020 Dolan) -- **~27% mean IoU**, params not refit
+- [ ] Phase 8: deploy a live public demo (pending a hosting decision)
 
 ## End goal
 
@@ -62,6 +56,13 @@ past tire-degradation modeling project.
 | Elevation, slope, aspect, fuel model (FBFM40) | [LANDFIRE Product Service (LFPS)](https://lfps.usgs.gov) -- one bundled, co-registered GeoTIFF |
 | Wind | NOAA/NWS API |
 | Real fire perimeters | Cal Fire GIS / NIFC |
+
+## Documentation
+
+- [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) -- the full build log: how
+  the CA model works, how it was calibrated against real fire data, the
+  cross-validation against a second fire, and the real bugs found (and
+  fixed) at each phase.
 
 ## Quick Start
 
