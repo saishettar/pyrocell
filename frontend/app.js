@@ -83,6 +83,7 @@ async function loadDemo(fireSlug) {
     [meta.bounds.south, meta.bounds.west],
     [meta.bounds.north, meta.bounds.east],
   ];
+  imageOverlay.setBounds(bounds);
   map.invalidateSize();
   map.fitBounds(bounds, { padding: [40, 40] });
 
