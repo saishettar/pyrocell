@@ -56,9 +56,16 @@ NEIGHBOR_OFFSETS = [
 # literal rate-of-spread value -- grass carries fire fastest (flashy, low
 # fuel load), timber litter slowest (compact, shaded, slow-drying).
 def fuel_spread_rate(fuel_code: np.ndarray) -> np.ndarray:
+    # Default is non-burnable, not a generic "burnable" fallback -- this
+    # also covers LANDFIRE nodata (-9999, e.g. open ocean beyond its
+    # coverage extent) and any unrecognized code safely. An earlier version
+    # defaulted unmatched codes to 0.3 (moderately burnable), which silently
+    # treated nodata as real fuel; that never showed up against the
+    # Soberanes AOI (its ocean cells are real LANDFIRE code 98, not nodata)
+    # but did against Dolan's, whose AOI reaches open water outside
+    # LANDFIRE's coverage. Found via cross-validation, not by inspection.
     code = np.asarray(fuel_code)
-    rate = np.full(code.shape, 0.3, dtype=np.float32)  # fallback bucket
-    rate = np.where((code >= 90) & (code < 100), 0.0, rate)     # non-burnable
+    rate = np.zeros(code.shape, dtype=np.float32)
     rate = np.where((code >= 100) & (code < 110), 1.0, rate)    # grass
     rate = np.where((code >= 120) & (code < 130), 0.85, rate)   # grass-shrub
     rate = np.where((code >= 140) & (code < 150), 0.7, rate)    # shrub/chaparral
@@ -124,7 +131,13 @@ class FireGrid:
             run = dist_factor * params.cell_size_m
             gradient = (self.elevation_m - elev_neighbor) / run  # >0 => center is uphill from neighbor
             gradient = np.nan_to_num(gradient, nan=0.0)
-            slope_factor = np.exp(params.k_slope * gradient)
+            # A cell bordering NODATA (e.g. LANDFIRE's -9999 fill just past
+            # its ocean coverage extent) produces a nonsense multi-hundred-
+            # unit "gradient" against a real neighbor. That cell always has
+            # fuel_rate=0 so it can never ignite regardless, but clip before
+            # exp() anyway rather than relying on downstream zeroing to mask
+            # an overflow -> inf -> 0*inf -> NaN chain.
+            slope_factor = np.exp(np.clip(params.k_slope * gradient, -50.0, 50.0))
 
             # Fire travels FROM the neighbor INTO this cell, i.e. opposite
             # of the center->neighbor compass bearing.

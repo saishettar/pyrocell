@@ -40,6 +40,10 @@ a good stress test for the model.
 - [x] Phase 5: map-based frontend animation -- real Leaflet map (OpenStreetMap basemap) with a play/scrub timeline over the calibrated 7-day simulation, real recorded perimeter as a toggleable overlay for visual comparison (`backend/api/`, `frontend/`)
 - [x] Phase 6a: interactive click-to-simulate -- click any point in the fetched AOI, pick a duration (24-96h) and an optional historical date (blank = live current wind from NOAA `forecastHourly`), run on demand (`POST /api/simulate`, `backend/api/simulate.py`). Historical dates reuse the same IEM/ASOS archive as Soberanes; live conditions hit `api.weather.gov`. Verified in-browser for both wind sources -- a live run near Big Sur's inland side stalled at 15 acres under tonight's calm wind, while historical Soberanes conditions reproduce the Phase 4 calibration curve exactly, which is the expected contrast.
 - [ ] Phase 6b: deploy a live public demo (pending a hosting decision)
+- [x] Phase 7: cross-validation against a second, independent fire -- the 2020 Dolan Fire (Big Sur south coast, ~124,500ac), using the Soberanes-calibrated params completely UNCHANGED (`backend/simulation/cross_validate_dolan.py`, `fire_config.py`)
+  - A single-seed first pass looked broken (fire went to zero burning cells at hour 14 and stayed there for the rest of a 21-day run) -- turned out to be a real, non-bug model property: BURNED is terminal, so a probabilistic CA with a finite burnout window can stochastically self-extinguish before it "catches," the same way small real ignitions sometimes fizzle out. A 16-seed screen at 48h confirmed it: 15/16 seeds escape and grow normally; that one seed was just the unlucky draw.
+  - Among escaped seeds (5 run to the full 21-day duration), **IoU against the real Dolan perimeter averaged 0.27 (range 0.25-0.31)** -- comparable to, even slightly above, Soberanes' own ~0.24 validation number, using parameters that were never touched for Dolan. That's the actual evidence the calibration generalizes rather than just curve-fitting one fire.
+  - Also caught and fixed a real, previously-latent bug during this AOI's data pipeline: `fuel_spread_rate`'s fallback defaulted anything outside the known FBFM40 buckets to a moderately-burnable rate (0.3), silently treating LANDFIRE nodata (-9999, e.g. open ocean past its coverage extent) as real fuel. Never surfaced against Soberanes' AOI (its ocean cells are real LANDFIRE water code 98, not nodata) but did against Dolan's, whose AOI reaches open water beyond LANDFIRE's coverage (~11% of the grid). Fixed to default unrecognized codes to non-burnable. See `output/phase7_dolan_cross_validation.png`.
 
 ## End goal
 
@@ -111,3 +115,15 @@ Then open `http://localhost:8000`. You'll get the full app: the animated
 2016 Soberanes Fire demo with the real recorded perimeter toggle, plus
 click-to-simulate anywhere in the fetched AOI with live or historical wind
 (Phase 6).
+
+**Optional: reproduce the cross-validation (Phase 7)**
+
+```bash
+venv/Scripts/python.exe backend/data_pipeline/fetch_dolan.py --email you@example.com
+venv/Scripts/python.exe backend/data_pipeline/fetch_perimeter.py --fire-name DOLAN --year 2020
+venv/Scripts/python.exe backend/simulation/cross_validate_dolan.py
+```
+
+Runs the Soberanes-calibrated params, completely unchanged, against the
+2020 Dolan Fire's real terrain/wind/perimeter. Takes a while -- it's a
+16-seed screen plus 5 full 21-day simulations on a ~650x785 grid.

@@ -1,11 +1,13 @@
 """
-Phase 1: pull DEM + fuel data for the Soberanes Fire area (Big Sur / Garrapata
-State Park, Santa Lucia Range) via LFPS, save as a numpy grid, and plot the raw
-slope/fuel maps so we can eyeball that the data looks sane before writing any
-simulation code.
+Cross-validation fire #2: pull DEM + fuel data for the 2020 Dolan Fire area
+(Big Sur south coast, Dolan Ridge / Los Padres NF) via LFPS. Mirrors
+fetch_bigsur.py but for a different AOI/fire -- kept as a separate script
+rather than parameterizing fetch_bigsur.py, since each fire's AOI and plot
+are one-off enough that a thin duplicate is clearer than a config-driven
+abstraction here.
 
 Usage:
-    venv/Scripts/python.exe backend/data_pipeline/fetch_bigsur.py --email you@example.com
+    venv/Scripts/python.exe backend/data_pipeline/fetch_dolan.py --email you@example.com
 """
 from __future__ import annotations
 
@@ -18,13 +20,12 @@ import rasterio
 
 from landfire_client import AreaOfInterest, fetch_landfire_bundle
 
-# Bounding box covering the Soberanes Fire's full run (started 2016-07-22 near
-# Garrapata SP / Palo Colorado Canyon, burned ~132,000 ac south into the Big
-# Sur backcountry and east toward Cachagua). WGS84 degrees.
-SOBERANES_AOI = AreaOfInterest(west=-121.95, south=36.28, east=-121.55, north=36.60)
+# Real final Dolan perimeter spans roughly lon -121.68..-121.26, lat
+# 35.94..36.21 (CAL FIRE FRAP); this AOI covers that with margin.
+DOLAN_AOI = AreaOfInterest(west=-121.72, south=35.90, east=-121.20, north=36.25)
 
 ROOT = Path(__file__).resolve().parents[2]
-RAW_DIR = ROOT / "data" / "raw" / "soberanes"
+RAW_DIR = ROOT / "data" / "raw" / "dolan"
 PROCESSED_DIR = ROOT / "data" / "processed"
 OUTPUT_DIR = ROOT / "output"
 
@@ -62,7 +63,7 @@ def sanity_check_plot(arrays: dict[str, np.ndarray], out_path: Path) -> None:
         ax.set_title(title)
         ax.axis("off")
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    fig.suptitle("Soberanes Fire AOI -- raw LANDFIRE layers (Big Sur, CA)")
+    fig.suptitle("Dolan Fire AOI -- raw LANDFIRE layers (Big Sur south coast, CA)")
     fig.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=150)
@@ -72,11 +73,11 @@ def sanity_check_plot(arrays: dict[str, np.ndarray], out_path: Path) -> None:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--email", required=True, help="required by LFPS to identify the job requester")
-    parser.add_argument("--resolution", type=int, default=60, help="output cell size in meters (LFPS requires >=31; use multiples of 30)")
+    parser.add_argument("--resolution", type=int, default=60, help="output cell size in meters (LFPS requires >=31)")
     args = parser.parse_args()
 
     tif_path = fetch_landfire_bundle(
-        SOBERANES_AOI,
+        DOLAN_AOI,
         email=args.email,
         dest_dir=RAW_DIR,
         resample_resolution=args.resolution,
@@ -87,15 +88,15 @@ def main():
 
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
-        PROCESSED_DIR / "soberanes_grid.npz",
+        PROCESSED_DIR / "dolan_grid.npz",
         elevation_m=arrays["elevation_m"],
         slope_deg=arrays["slope_deg"],
         aspect_deg=arrays["aspect_deg"],
         fuel_model_40=arrays["fuel_model_40"],
     )
-    print(f"[grid] saved {PROCESSED_DIR / 'soberanes_grid.npz'}")
+    print(f"[grid] saved {PROCESSED_DIR / 'dolan_grid.npz'}")
 
-    sanity_check_plot(arrays, OUTPUT_DIR / "soberanes_raw_layers.png")
+    sanity_check_plot(arrays, OUTPUT_DIR / "dolan_raw_layers.png")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,13 @@
 """
-Shared setup for all Soberanes Fire runs: the real grid, real ignition
-point, and real hourly wind, factored out of real_conditions.py so
-calibrate.py and validate_perimeter.py don't duplicate it.
+Shared setup for real-fire runs: the real grid, real ignition point, and
+real hourly wind, factored out of real_conditions.py so calibrate.py and
+validate_perimeter.py don't duplicate it.
+
+Originally Soberanes-only (hence the filename); every function now takes
+optional overrides so cross_validate_dolan.py can reuse the same logic for
+a second fire without duplicating it. Existing call sites that don't pass
+the new params get identical behavior to before -- all defaults still
+resolve to Soberanes.
 """
 from __future__ import annotations
 
@@ -23,6 +29,8 @@ ROOT = Path(__file__).resolve().parents[2]
 RAW_DIR = ROOT / "data" / "raw"
 PROCESSED_DIR = ROOT / "data" / "processed"
 
+SOBERANES_RAW_DIR = RAW_DIR / "soberanes"
+
 IGNITION_LAT = 36.456429
 IGNITION_LON = -121.924016
 IGNITION_TIME_UTC = datetime(2016, 7, 22, 15, 48, tzinfo=timezone.utc)
@@ -41,10 +49,11 @@ ACRE_M2 = 4046.8564224
 SUBSTEPS_PER_HOUR = 6
 
 
-def find_bundle_tif() -> Path:
-    tifs = list(RAW_DIR.glob("*.tif"))
+def find_bundle_tif(raw_dir: Path = None) -> Path:
+    raw_dir = raw_dir or SOBERANES_RAW_DIR
+    tifs = list(raw_dir.glob("*.tif"))
     if not tifs:
-        raise FileNotFoundError(f"no .tif in {RAW_DIR} -- run fetch_bigsur.py first")
+        raise FileNotFoundError(f"no .tif in {raw_dir} -- run the fetch script for this fire first")
     return tifs[0]
 
 
@@ -55,9 +64,12 @@ def latlon_to_rowcol(lat: float, lon: float, transform, crs) -> tuple[int, int]:
     return int(row), int(col)
 
 
-def load_grid():
+def load_grid(raw_dir: Path = None, ignition_lat: float = None, ignition_lon: float = None):
     """Returns (elevation_m, fuel_code, transform, crs, cell_size_m, ignite_row, ignite_col)."""
-    tif_path = find_bundle_tif()
+    ignition_lat = IGNITION_LAT if ignition_lat is None else ignition_lat
+    ignition_lon = IGNITION_LON if ignition_lon is None else ignition_lon
+
+    tif_path = find_bundle_tif(raw_dir)
     with rasterio.open(tif_path) as src:
         elevation_m = src.read(1).astype(np.float32)
         fuel_code = src.read(4).astype(np.float32)
@@ -65,7 +77,7 @@ def load_grid():
         crs = src.crs
         cell_size_m = abs(transform.a)
 
-    ignite_row, ignite_col = latlon_to_rowcol(IGNITION_LAT, IGNITION_LON, transform, crs)
+    ignite_row, ignite_col = latlon_to_rowcol(ignition_lat, ignition_lon, transform, crs)
     h, w = elevation_m.shape
     if not (0 <= ignite_row < h and 0 <= ignite_col < w):
         raise ValueError(f"ignition point falls outside the fetched grid ({h}x{w})")
@@ -73,10 +85,13 @@ def load_grid():
     return elevation_m, fuel_code, transform, crs, cell_size_m, ignite_row, ignite_col
 
 
-def fetch_wind_series(n_hours: int) -> list[WindObservation]:
-    start_date = IGNITION_TIME_UTC.date()
-    end_date = (IGNITION_TIME_UTC + timedelta(hours=n_hours, days=1)).date()
-    cache_path = PROCESSED_DIR / f"wind_{WIND_STATION}_{start_date}_{end_date}.csv"
+def fetch_wind_series(n_hours: int, station: str = None, ignition_time: datetime = None) -> list[WindObservation]:
+    station = station or WIND_STATION
+    ignition_time = ignition_time or IGNITION_TIME_UTC
+
+    start_date = ignition_time.date()
+    end_date = (ignition_time + timedelta(hours=n_hours, days=1)).date()
+    cache_path = PROCESSED_DIR / f"wind_{station}_{start_date}_{end_date}.csv"
 
     if cache_path.exists():
         obs = []
@@ -89,7 +104,7 @@ def fetch_wind_series(n_hours: int) -> list[WindObservation]:
                 ))
         print(f"[wind] loaded {len(obs)} cached observations from {cache_path}")
     else:
-        obs = fetch_historical_wind(WIND_STATION, start_date, end_date)
+        obs = fetch_historical_wind(station, start_date, end_date)
         PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
         with open(cache_path, "w", newline="") as f:
             writer = csv.writer(f)
@@ -102,17 +117,20 @@ def fetch_wind_series(n_hours: int) -> list[WindObservation]:
 
 def build_substep_params(
     cell_size_m: float, n_hours: int, base_prob: float, k_slope: float, k_wind: float, burnout_hours: float,
-    wind_obs: list[WindObservation] = None,
+    wind_obs: list[WindObservation] = None, start_time: datetime = None, station: str = None,
 ) -> list[SimParams]:
     """One SimParams per CA sub-step (SUBSTEPS_PER_HOUR per real hour); each
     hour's wind reading is held constant across its sub-steps. burnout_hours
     is in real hours -- converted to sub-step units internally."""
-    obs = wind_obs if wind_obs is not None else fetch_wind_series(n_hours)
+    start_time = start_time or IGNITION_TIME_UTC
+    if start_time.tzinfo:
+        start_time = start_time.replace(tzinfo=None)
+    obs = wind_obs if wind_obs is not None else fetch_wind_series(n_hours, station=station, ignition_time=start_time)
     burnout_steps = max(1, round(burnout_hours * SUBSTEPS_PER_HOUR))
 
     params = []
     for h in range(n_hours):
-        t = IGNITION_TIME_UTC.replace(tzinfo=None) + timedelta(hours=h)
+        t = start_time + timedelta(hours=h)
         w = wind_at_or_before(obs, t)
         speed = w.speed_mps or 0.0
         dir_to = w.dir_to_deg if w.dir_to_deg is not None else 0.0
