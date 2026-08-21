@@ -1,7 +1,28 @@
 # Wildfire Spread Simulator
 
 A cellular-automaton wildfire spread model driven by real terrain, fuel, and
-wind data, validated against a real historical fire.
+wind data, validated against real historical fires.
+
+## Purpose
+
+This exists to demonstrate applied computational modeling and validation
+discipline, not just to animate a fire on a map -- the same shape as a
+past tire-degradation modeling project: a real, working tool with a
+defensible accuracy number behind it, not a black box. Concretely:
+
+- **Calibrated**, not guessed -- `base_prob` is fit against the real 2016
+  Soberanes Fire's actual reported growth curve (Phase 4).
+- **Cross-validated**, not just fit -- the same calibrated params, never
+  refit, are run against a second, independent fire (2020 Dolan) to check
+  the model generalizes rather than curve-fitting one dataset (Phase 7).
+- **Scored honestly** -- IoU (intersection-over-union) against each fire's
+  real recorded perimeter, with the model's real limitations (no
+  suppression modeling, single wind station, simplified physics) stated
+  directly rather than buried. Currently: **~24% IoU** (Soberanes,
+  calibrated) and **~27% mean IoU** (Dolan, cross-validated).
+- **Interactive**, not a fixed demo -- click any point in either fire's
+  fetched area, pick a duration and live-or-historical wind, and watch a
+  fresh simulation run on real terrain.
 
 ## Theoretical basis
 
@@ -48,15 +69,9 @@ different terrain and fuel (Phase 7).
 - [x] Phase 7.5: both fires live in the app -- a fire selector switches the map, demo animation, real perimeter, and click-to-simulate AOI between Soberanes and Dolan
 - [ ] Phase 8: deploy a live public demo (pending a hosting decision)
 
-## End goal
-
-A deployed web app: click a point on a Big Sur map, set a start time, hit
-simulate, and watch an hour-by-hour animated fire perimeter grow across
-real terrain -- with a toggle to overlay the actual recorded perimeter of a
-historical fire so the model's accuracy is visible, not just claimed. The
-headline number for the README/resume is the IoU (intersection-over-union)
-between simulated and real burned area, the same role R²/RMSE played in a
-past tire-degradation modeling project.
+Everything above is built and running locally (see [Purpose](#purpose)) --
+the one thing left is putting it somewhere with a public URL instead of
+`localhost` (Phase 8).
 
 ## Data sources
 
