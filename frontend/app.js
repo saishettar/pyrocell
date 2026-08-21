@@ -9,6 +9,7 @@ let pickedMarker = null;
 let picking = false;
 let mode = "demo"; // "demo" | "custom"
 let currentFire = "soberanes";
+let loadGeneration = 0; // guards against an older loadDemo() call finishing after a newer one
 
 const FIRE_LABELS = {
   soberanes: { title: "Soberanes Fire", ignitionPopup: "2016-07-22 8:48am PDT" },
@@ -62,11 +63,20 @@ async function init() {
 }
 
 async function loadDemo(fireSlug) {
-  currentFire = fireSlug;
+  // If this call is superseded by a newer one before its fetches resolve
+  // (e.g. the dropdown gets changed twice in quick succession), the
+  // earlier call must not be allowed to clobber state after the later one
+  // has already applied -- check this token after every await, not just
+  // set it once at the top.
+  const myGeneration = ++loadGeneration;
+
   mode = "demo";
   if (playing) togglePlay();
 
-  meta = await fetch(`/api/meta?fire=${fireSlug}`).then((r) => r.json());
+  const newMeta = await fetch(`/api/meta?fire=${fireSlug}`).then((r) => r.json());
+  if (myGeneration !== loadGeneration) return;
+  meta = newMeta;
+  currentFire = fireSlug;
   applyMeta(meta);
 
   const bounds = [
@@ -88,6 +98,7 @@ async function loadDemo(fireSlug) {
 
   if (perimeterLayer) map.removeLayer(perimeterLayer);
   const perimeterGeojson = await fetch(`/api/perimeter?fire=${fireSlug}`).then((r) => r.json());
+  if (myGeneration !== loadGeneration) return;
   perimeterLayer = L.geoJSON(perimeterGeojson, {
     style: { color: "#2255ff", weight: 2.5, fillOpacity: 0 },
   });
